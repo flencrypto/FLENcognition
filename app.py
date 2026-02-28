@@ -63,7 +63,7 @@ def process_images(image_paths):
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
-                    max_new_tokens=1024
+                    max_new_tokens=8192
                 )
 
             generated_ids_trimmed = [
