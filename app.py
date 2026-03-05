@@ -3,9 +3,9 @@ import spaces
 import torch
 from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
 
-MODEL_DIR = "flen-crypto/FLENcognition"
+MODEL_DIR = "FireRedTeam/FireRed-OCR"
 
-print("🔥 Loading FLENcognition...")
+print("🔥 Loading FLENcognition model...")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
