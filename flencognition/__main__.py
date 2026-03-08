@@ -15,6 +15,7 @@ import argparse
 import sys
 
 from . import FLENcognition
+from .core import DEFAULT_MODEL_DIR
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -50,11 +51,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model-dir",
-        default="FireRedTeam/FireRed-OCR",
+        default=DEFAULT_MODEL_DIR,
         metavar="MODEL",
         help=(
-            "Hugging Face repository or local path for the model "
-            '(default: "FireRedTeam/FireRed-OCR").'
+            f"Hugging Face repository or local path for the model "
+            f'(default: "{DEFAULT_MODEL_DIR}").'
         ),
     )
     return parser
@@ -85,5 +86,10 @@ def main(argv: list[str] | None = None) -> int:
     return exit_code
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """Console-script entry point. Propagates the exit code to the shell."""
     sys.exit(main())
+
+
+if __name__ == "__main__":
+    cli()

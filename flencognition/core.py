@@ -10,7 +10,9 @@ initialised the first time :meth:`FLENcognition.process_image` (or
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 from typing import Optional
 
 import torch
@@ -18,6 +20,8 @@ import torch
 from .conv_for_infer import generate_conv
 
 DEFAULT_MODEL_DIR = "FireRedTeam/FireRed-OCR"
+
+_logger = logging.getLogger(__name__)
 
 
 class FLENcognition:
@@ -34,9 +38,16 @@ class FLENcognition:
         chosen automatically: CUDA if available, otherwise CPU.
     output_dir:
         Default directory used when saving Markdown files via
-        ``save_markdown=True``.
+        ``save_markdown=True``.  Relative paths are resolved against the
+        process working directory at the time :meth:`process_image` is
+        called.
     max_new_tokens:
         Maximum number of tokens the model may generate per image.
+    trust_remote_code:
+        Passed to ``from_pretrained`` for both the model and processor.
+        The FireRed-OCR checkpoint requires this to be *True*.  Only set
+        it to *True* for model repositories you trust, as it allows
+        arbitrary code execution during model loading.
     """
 
     def __init__(
@@ -45,10 +56,12 @@ class FLENcognition:
         device: Optional[str | torch.device] = None,
         output_dir: str = "md_output",
         max_new_tokens: int = 8192,
+        trust_remote_code: bool = True,
     ) -> None:
         self.model_dir = model_dir
         self.output_dir = output_dir
         self.max_new_tokens = max_new_tokens
+        self.trust_remote_code = trust_remote_code
 
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,28 +72,35 @@ class FLENcognition:
 
         self._model = None
         self._processor = None
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
     def _load_model(self) -> None:
-        """Load the model and processor (idempotent)."""
+        """Load the model and processor (idempotent, thread-safe)."""
         if self._model is not None:
             return
 
-        from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
+        with self._lock:
+            # Re-check inside the lock to handle the case where another
+            # thread completed loading while we were waiting.
+            if self._model is not None:
+                return
 
-        print(f"🔥 Loading FLENcognition model from {self.model_dir}...")
-        self._model = Qwen3VLForConditionalGeneration.from_pretrained(
-            self.model_dir,
-            trust_remote_code=True,
-        ).to(self.device)
-        self._processor = AutoProcessor.from_pretrained(
-            self.model_dir,
-            trust_remote_code=True,
-        )
-        self._model.eval()
+            from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
+
+            _logger.info("Loading FLENcognition model from %s...", self.model_dir)
+            self._model = Qwen3VLForConditionalGeneration.from_pretrained(
+                self.model_dir,
+                trust_remote_code=self.trust_remote_code,
+            ).to(self.device)
+            self._processor = AutoProcessor.from_pretrained(
+                self.model_dir,
+                trust_remote_code=self.trust_remote_code,
+            )
+            self._model.eval()
 
     @property
     def model(self):
@@ -158,7 +178,7 @@ class FLENcognition:
         if save_markdown:
             os.makedirs(self.output_dir, exist_ok=True)
             basename = os.path.splitext(os.path.basename(image_path))[0]
-            file_path = os.path.join(self.output_dir, f"{basename}.md")
+            file_path = os.path.abspath(os.path.join(self.output_dir, f"{basename}.md"))
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
@@ -184,3 +204,4 @@ class FLENcognition:
             One result dict per image (see :meth:`process_image`).
         """
         return [self.process_image(path, save_markdown=save_markdown) for path in image_paths]
+

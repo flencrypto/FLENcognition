@@ -13,15 +13,14 @@ dependencies = [
     "transformers>=4.57.3",
     "pillow>=12.1.1",
     "torchvision",
-    "markdown>=3.10.2",
     "torch",
 ]
 
 [project.optional-dependencies]
-app = ["gradio>=6.8.0", "spaces"]
+app = ["gradio>=6.8.0", "spaces", "markdown>=3.10.2"]
 
 [project.scripts]
-flencognition = "flencognition.__main__:main"
+flencognition = "flencognition.__main__:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -1,20 +1,18 @@
 import spaces
 
 import gradio as gr
-import markdown
 from PIL import Image
 import os
 from datetime import datetime
 import tempfile
-from pathlib import Path
 import base64
 
 from flencognition import FLENcognition
 
-# The engine loads the model lazily on first use.
-_engine = FLENcognition()
-
 MARKDOWN_OUTPUT = "md_output"
+
+# The engine loads the model lazily on first use.
+_engine = FLENcognition(output_dir=MARKDOWN_OUTPUT)
 
 @spaces.GPU
 def process_images(image_paths):
