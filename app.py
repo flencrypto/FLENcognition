@@ -1,38 +1,18 @@
 import spaces
 
-import torch
-from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
-
-MODEL_DIR = "FireRedTeam/FireRed-OCR"
-
-print("🔥 Loading FLENcognition model...")
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-model = Qwen3VLForConditionalGeneration.from_pretrained(
-    MODEL_DIR,
-    trust_remote_code=True
-).to(device)
-
-processor = AutoProcessor.from_pretrained(
-    MODEL_DIR,
-    trust_remote_code=True
-)
-
-model.eval()
-
 import gradio as gr
-import markdown
 from PIL import Image
 import os
 from datetime import datetime
 import tempfile
-import shutil
-from pathlib import Path
-from conv_for_infer import generate_conv
 import base64
 
+from flencognition import FLENcognition
+
 MARKDOWN_OUTPUT = "md_output"
+
+# The engine loads the model lazily on first use.
+_engine = FLENcognition(output_dir=MARKDOWN_OUTPUT)
 
 @spaces.GPU
 def process_images(image_paths):
@@ -40,49 +20,14 @@ def process_images(image_paths):
     if not image_paths:
         return "<p style='color:red;'>Please upload image.</p>", None, None
 
-    os.makedirs("md_output", exist_ok=True)
-
     all_text = ""
+    markdown_file = None  # Only the last file is surfaced for download (Gradio single-file widget).
 
     for image_path in image_paths:
         try:
-            basename = os.path.splitext(os.path.basename(image_path))[0]
-            markdown_file = os.path.join("md_output", f"{basename}.md")
-
-            # === 你的原始逻辑 ===
-            messages = generate_conv({"image_path": image_path})
-
-            inputs = processor.apply_chat_template(
-                messages,
-                tokenize=True,
-                add_generation_prompt=True,
-                return_dict=True,
-                return_tensors="pt"
-            ).to(device)
-
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=8192
-                )
-
-            generated_ids_trimmed = [
-                out_ids[len(in_ids):]
-                for in_ids, out_ids in zip(inputs.input_ids, outputs)
-            ]
-
-            text = processor.batch_decode(
-                generated_ids_trimmed,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False
-            )[0]
-
-            # 保存文件
-            with open(markdown_file, "w", encoding="utf-8") as f:
-                f.write(text)
-
-            all_text += text + "\n\n"
-
+            result = _engine.process_image(image_path, save_markdown=True)
+            all_text += result["markdown"] + "\n\n"
+            markdown_file = result["file"]
         except Exception as e:
             all_text += f"\n\n**Error processing {image_path}: {str(e)}**\n\n"
 

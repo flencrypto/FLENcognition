@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flencognition"
+version = "0.1.0"
+description = "Document OCR and recognition tool powered by FireRed-OCR"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "transformers>=4.57.3",
+    "pillow>=12.1.1",
+    "torchvision",
+    "torch",
+]
+
+[project.optional-dependencies]
+app = ["gradio>=6.8.0", "spaces", "markdown>=3.10.2"]
+
+[project.scripts]
+flencognition = "flencognition.__main__:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["flencognition*"]
